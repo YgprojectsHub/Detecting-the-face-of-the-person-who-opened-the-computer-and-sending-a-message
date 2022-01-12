@@ -1,0 +1,118 @@
+#Microsoft Visiul Studio 2019
+
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using AForge.Video;
+using AForge.Video.DirectShow;
+using System.Net;
+using System.Net.Mail;
+using Microsoft.Win32;
+
+namespace face_d
+{
+    public partial class Form1 : Form
+    {
+        public Form1()
+        {
+            InitializeComponent();
+        }
+
+        private FilterInfoCollection webcam;//The variable we define as webcam is an array that holds how many cameras are connected to the computer.
+        private VideoCaptureDevice cam;//The device we use with the camera.
+        public int sayi;
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
+            key.SetValue("face_d", "\"" + Application.ExecutablePath + "\"");
+
+            Random rastgele = new Random();
+            sayi = rastgele.Next(50, 10000);
+
+            webcam = new FilterInfoCollection(FilterCategory.VideoInputDevice);//We fill the existing cameras into the webcam array.
+            foreach (FilterInfo videocapturedevice in webcam)
+            {
+                comboBox1.Items.Add(videocapturedevice.Name);//We load the cameras into the combobox.
+            }
+            comboBox1.SelectedIndex = 0; //It shows the camera with the first index number in the combobox on the screen.
+
+            cam = new VideoCaptureDevice();
+
+            cam = new VideoCaptureDevice(webcam[comboBox1.SelectedIndex].MonikerString);
+            cam.NewFrame += VideoCaptureDevice_NewFrame;
+            cam.Start();
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            try
+            {
+            Image img = pictureBox1.Image;
+            Bitmap bmp = new Bitmap(img.Width, img.Height);
+            Graphics gra = Graphics.FromImage(bmp);
+            gra.DrawImageUnscaled(img, new Point(0, 0));
+            gra.Dispose();
+            bmp.Save("C:\\Users\\hilal\\Documents\\ftgr\\"+ sayi +".jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+            bmp.Dispose();
+
+            Gonder();
+
+            Application.Exit();
+            }
+            catch (Exception)
+            {
+                MessageBox.Show("Probably because you use the program a lot. The data we sent fell into Spam. Please try again in a few hours.");
+            }
+        }
+
+        private void VideoCaptureDevice_NewFrame(object sender, NewFrameEventArgs eventArgs)
+        {
+            pictureBox1.Image = (Bitmap)eventArgs.Frame.Clone();
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (cam.IsRunning)
+            {
+                cam.Stop();
+            }
+        }
+
+        MailMessage ePosta = new MailMessage();
+
+        void Gonder()
+        {
+            string durum = "Unidentified Person:";
+            string konu = "The Person Who Opened Your Computer Has Been Viewed:";
+
+            Attachment attachment;
+            attachment = new Attachment("C:\\Users\\hilal\\Documents\\ftgr\\" + sayi + ".jpg");
+            ePosta.Attachments.Add(attachment);
+
+            ePosta.From = new MailAddress("myaccount@outlook.com");
+
+            ePosta.To.Add("address_to_send@outlook.com");
+            //ePosta.To.Add("More_shipping_addresses@outlook.com");
+
+            ePosta.Subject = konu;
+
+            ePosta.Body = durum;
+
+            SmtpClient smtp = new SmtpClient();
+
+            smtp.Credentials = new System.Net.NetworkCredential("myaccount@outlook.com", "mypassword");
+            smtp.Host = "smtp.live.com";
+            smtp.EnableSsl = true;
+            smtp.Port = 587;
+
+            smtp.Send(ePosta);
+        }
+    }
+}
